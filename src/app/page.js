@@ -256,7 +256,7 @@ export default function Home() {
         {/* Toggle Controls (Mobile) */}
         <button
           onClick={() => setShowControls((p) => !p)}
-          className="fixed top-4 right-4 p-3 rounded-full bg-black text-white shadow-lg"
+          className="fixed top-4 right-4 p-3 rounded-full bg-black text-white shadow-lg md:hidden"
         >
           <Grid3X3 size={18} />
         </button>
