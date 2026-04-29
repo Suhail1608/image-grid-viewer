@@ -11,10 +11,35 @@ export default function Home() {
   const [lineWidth, setLineWidth] = useState(1);
   const [showDiagonal, setShowDiagonal] = useState(false);
   const [diagonalType, setDiagonalType] = useState("both");
+  const [strokeColor, setStrokeColor] = useState("#000000");
+  const [unit, setUnit] = useState("cm"); // cm | px
+  const [opacity, setOpacity] = useState(0.7);
+  const [brightness, setBrightness] = useState(100);
+  const [contrast, setContrast] = useState(100);
+  const [saturation, setSaturation] = useState(100);
   const [showControls, setShowControls] = useState(true);
   const [particles, setParticles] = useState([]);
-  const getCMToPX = () => (96 * window.devicePixelRatio) / 2.54;
+  const hexToRgba = (hex, alpha) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+  const getSpacing = () => {
+    const dpr = window.devicePixelRatio || 1;
 
+    if (unit === "px") return gridSize;
+
+    if (unit === "cm") {
+      return gridSize * (96 * dpr) / 2.54;
+    }
+
+    if (unit === "inch") {
+      return gridSize * 96 * dpr;
+    }
+
+    return gridSize;
+  };
   const drawCanvas = () => {
     if (!image) return;
 
@@ -25,7 +50,6 @@ export default function Home() {
     img.src = image;
 
     img.onload = () => {
-      // Fit image inside viewport
       const maxWidth = window.innerWidth * 0.95;
       const maxHeight = window.innerHeight * 0.75;
 
@@ -41,16 +65,27 @@ export default function Home() {
       canvas.height = height;
 
       ctx.clearRect(0, 0, width, height);
+
+      // 🎨 Apply filters BEFORE drawing image
+      ctx.filter = `
+      brightness(${brightness}%)
+      contrast(${contrast}%)
+      saturate(${saturation}%)
+    `;
+
       ctx.drawImage(img, 0, 0, width, height);
+
+      // reset filter so grid is not affected
+      ctx.filter = "none";
 
       drawGrid(ctx, width, height);
     };
   };
 
   const drawGrid = (ctx, width, height) => {
-    const spacing = gridSize * getCMToPX();
+    const spacing = getSpacing();
 
-    ctx.strokeStyle = "rgba(0,0,0,0.7)";
+    ctx.strokeStyle = hexToRgba(strokeColor, opacity);
     ctx.lineWidth = lineWidth;
 
     for (let x = 0; x < width; x += spacing) {
@@ -119,7 +154,7 @@ export default function Home() {
 
   useEffect(() => {
     drawCanvas();
-  }, [image, gridSize, showDiagonal, diagonalType, lineWidth]);
+  }, [image, gridSize, showDiagonal, diagonalType, lineWidth, strokeColor, unit, opacity, brightness, contrast, saturation]);
 
 
   useEffect(() => {
@@ -138,7 +173,7 @@ export default function Home() {
     <>
       {/* 🌫️ Misty Glow */}
       <div className="absolute bottom-[-95%] left-1/2 -translate-x-1/2 
-    w-200 h-200
+    w-full h-200
     bg-linear-to-tr from-fuchsia-400/30 via-purple-400/30 to-orange-400/40
     blur-[120px] opacity-60 animate-pulse" />
 
@@ -163,94 +198,180 @@ export default function Home() {
         {/* Canvas */}
         <canvas
           ref={canvasRef}
-          className="rounded-sm shadow-lg transition-all duration-300 max-w-full max-h-[70vh] z-10"
+          className={`rounded-sm ${image ? 'shadow-lg' : ''} transition-all duration-300 max-w-full max-h-[70vh] z-10`}
         />
 
         {/* Floating Controls */}
         <div
           className={`
-    w-full max-w-4xl mx-auto
-    backdrop-blur-md bg-white/70 dark:bg-zinc-900/70 
-    border border-white/20 shadow-xl rounded-2xl p-4 
-    flex flex-wrap gap-3 items-center justify-center
+    backdrop-blur-xl bg-white/70 dark:bg-zinc-900/70 
+    border border-white/20 shadow-2xl rounded-2xl
     transition-all duration-300
 
-    md:static md:translate-x-0 md:bottom-auto md:left-auto md:opacity-100
-    fixed bottom-4 left-1/2 -translate-x-1/2
-    ${showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}
+    /* 📱 Mobile → bottom panel */
+    fixed bottom-3 left-2 right-2 z-20
+    max-h-[45vh] overflow-y-auto p-3
+
+    /* 💻 Desktop → right sidebar */
+    md:top-1/2 md:right-4 md:left-auto md:bottom-auto
+    md:-translate-y-1/2 md:w-72 md:max-h-[80vh]
+    md:rounded-2xl
+
+    ${showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 md:translate-y-[-50%]"}
   `}
         >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files[0];
-              if (file) {
-                if (image) URL.revokeObjectURL(image);
-                setImage(URL.createObjectURL(file));
-              }
-            }}
-            className="text-sm"
-          />
-          Grid (cm)
-          <input
-            type="number"
-            min={0.1}
-            step={0.1}
-            value={gridSize}
-            onChange={(e) => {
-              const value = Math.max(0.1, Number(e.target.value));
-              setGridSize(value);
-            }}
-            className="w-16 px-2 py-1 border rounded text-sm bg-gray-50 dark:bg-zinc-800"
-            title="Grid (cm)"
-          />
-          Thickness
-          <input
-            type="number"
-            min={0.1}
-            step={0.1}
-            value={lineWidth}
-            onChange={(e) => {
-              const value = Math.max(0.1, Number(e.target.value));
-              setLineWidth(value);
-            }}
-            className="w-16 px-2 py-1 border rounded text-sm bg-gray-50 dark:bg-zinc-800"
-            title="Grid (cm)"
-          />
-          <label className="flex items-center gap-1 text-sm">
-            <input
-              type="checkbox"
-              checked={showDiagonal}
-              onChange={(e) => setShowDiagonal(e.target.checked)}
-            />
-            Diagonal
-          </label>
+          <div className="flex flex-col gap-3 text-xs">
+            {/* 📂 Actions */}
+            <div className="flex flex-col gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    if (image) URL.revokeObjectURL(image);
+                    setImage(URL.createObjectURL(file));
+                  }
+                }}
+                className="text-[10px] bg-blue-400 p-1 rounded text-white cursor-pointer"
+              />
 
-          <select
-            value={diagonalType}
-            onChange={(e) => setDiagonalType(e.target.value)}
-            className="px-2 py-1 border rounded text-sm bg-gray-50 dark:bg-zinc-800"
-          >
-            <option value="left">↘</option>
-            <option value="right">↙</option>
-            <option value="both">✖</option>
-          </select>
 
-          <button
-            onClick={handleDownload}
-            className="p-2 rounded bg-black text-white hover:scale-105 transition"
-          >
-            <Download size={16} />
-          </button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDownload}
+                className="flex-1 py-1 rounded bg-black text-white"
+              >
+                ⬇
+              </button>
 
-          <button
-            onClick={handleRemoveImage}
-            className="p-2 rounded bg-red-500 text-white hover:scale-105 transition"
-          >
-            <Trash2 size={16} />
-          </button>
+              <button
+                onClick={handleRemoveImage}
+                className="flex-1 py-1 rounded bg-red-500 text-white"
+              >
+                ✕
+              </button>
+            </div>
+            {/* 🎨 Appearance */}
+            <div className="flex flex-col gap-2">
+              <span className="uppercase text-[10px] text-zinc-500">Appearance</span>
+
+              <div className="flex items-center justify-start gap-2">
+                <label className="flex items-center gap-2">
+                  Color
+                  <input
+                    type="color"
+                    value={strokeColor}
+                    onChange={(e) => setStrokeColor(e.target.value)}
+                    className="w-6 h-6 rounded border"
+                  />
+                </label>
+                <label className="flex items-center gap-2">
+                  Thickness
+                  <input
+                    type="number"
+                    min={0.1}
+                    step={0.1}
+                    value={lineWidth}
+                    onChange={(e) =>
+                      setLineWidth(Math.max(0.1, Number(e.target.value)))
+                    }
+                    className="w-14 px-1 py-0.5 border rounded bg-gray-50 dark:bg-zinc-800"
+                  />
+                </label>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2">
+                  Opacity
+
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="1"
+                    step="0.1"
+                    value={opacity}
+                    onChange={(e) => setOpacity(Number(e.target.value))}
+                    className="w-full"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* 📏 Grid */}
+            <div className="flex flex-col gap-2">
+              <span className="uppercase text-[10px] text-zinc-500">Grid</span>
+
+              <div className="flex gap-2">
+                <select
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                  className="flex-1 px-1 py-0.5 border rounded bg-gray-50 dark:bg-zinc-800"
+                >
+                  <option value="cm">cm</option>
+                  <option value="inch">inch</option>
+                  <option value="px">px</option>
+                </select>
+
+                <input
+                  type="number"
+                  min={0.1}
+                  step={0.1}
+                  value={gridSize}
+                  onChange={(e) =>
+                    setGridSize(Math.max(0.1, Number(e.target.value)))
+                  }
+                  className="w-14 px-1 py-0.5 border rounded bg-gray-50 dark:bg-zinc-800"
+                />
+              </div>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={showDiagonal}
+                  onChange={(e) => setShowDiagonal(e.target.checked)}
+                />
+                Diagonal
+              </label>
+
+              {showDiagonal && (
+                <select
+                  value={diagonalType}
+                  onChange={(e) => setDiagonalType(e.target.value)}
+                  className="px-1 py-0.5 border rounded bg-gray-50 dark:bg-zinc-800"
+                >
+                  <option value="left">↘</option>
+                  <option value="right">↙</option>
+                  <option value="both">✖</option>
+                </select>
+              )}
+            </div>
+
+            {/* 🎛 Adjust */}
+            <div className="flex flex-col gap-2">
+              <span className="uppercase text-[10px] text-zinc-500">Adjust</span>
+
+              {[
+                { v: brightness, set: setBrightness, min: 50, max: 150 },
+                { v: contrast, set: setContrast, min: 50, max: 150 },
+                { v: saturation, set: setSaturation, min: 0, max: 200 },
+              ].map((item, i) => (
+                <label key={i} className="flex items-center gap-2 justify-between w-[80%]">
+                  {["Brightness", "Contrast", "Saturation"][i]}
+                  <input
+                    key={i}
+                    type="range"
+                    min={item.min}
+                    max={item.max}
+                    value={item.v}
+                    onChange={(e) => item.set(Number(e.target.value))}
+                  /></label>
+              ))}
+            </div>
+
+          </div>
         </div>
 
         {/* Toggle Controls (Mobile) */}
