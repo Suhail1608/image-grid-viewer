@@ -656,35 +656,37 @@ export default function Home() {
         >
           <Grid3X3 size={18} />
         </button>
-        <div
-          className="fixed top-4 left-4 p-3 rounded-full bg-black text-white shadow-lg">
-          <button
-            onClick={() => setEditMode(!editMode)}
-            className="px-2 py-1 bg-zinc-700 text-white rounded text-xs md:text-md"
-          >
-            Edit Image
-          </button>
-          {editMode && (
-            <div className="flex gap-2 mt-2">
-              <button
-                onClick={() => setEditMode(false)}
-                className="bg-green-500 text-white px-2 py-1 rounded"
-              >
-                ✔
-              </button>
+        {image &&
+          <div
+            className="fixed top-4 left-4 p-3 rounded-full bg-black text-white shadow-lg">
+            <button
+              onClick={() => setEditMode(!editMode)}
+              className="px-2 py-1 bg-zinc-700 text-white rounded text-xs md:text-md"
+            >
+              Edit Image
+            </button>
+            {editMode && (
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => setEditMode(false)}
+                  className="bg-green-500 text-white px-2 py-1 rounded"
+                >
+                  ✔
+                </button>
 
-              <button
-                onClick={() => {
-                  setTransform({ scale: 1, offsetX: 0, offsetY: 0 });
-                  setEditMode(false);
-                }}
-                className="bg-red-500 text-white px-2 py-1 rounded"
-              >
-                ✕
-              </button>
-            </div>
-          )}
-        </div>
+                <button
+                  onClick={() => {
+                    setTransform({ scale: 1, offsetX: 0, offsetY: 0 });
+                    setEditMode(false);
+                  }}
+                  className="bg-red-500 text-white px-2 py-1 rounded"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+        }
       </div>
     </>
   );
