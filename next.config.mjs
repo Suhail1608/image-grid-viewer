@@ -7,7 +7,7 @@ const nextConfig = {
         headers: [
           {
             key: "Content-Security-Policy",
-            value: "frame-ancestors https://www.dailytechmind.com;",
+            value: "frame-ancestors https://www.dailytechminds.com;",
           },
           {
             key: "X-Frame-Options",
