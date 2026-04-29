@@ -20,7 +20,14 @@ export default function Home() {
   const [showControls, setShowControls] = useState(true);
   const [particles, setParticles] = useState([]);
   const [paper, setPaper] = useState("A4");
-  const [dpi, setDpi] = useState(300); // high quality export
+  const [dpi, setDpi] = useState(150); // high quality export
+  const [editMode, setEditMode] = useState(false);
+
+  const [transform, setTransform] = useState({
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+  });
   const PAPER_SIZES = {
     A4: { w: 210, h: 297 },
     A3: { w: 297, h: 420 },
@@ -36,7 +43,7 @@ export default function Home() {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
   const getSpacing = () => {
-    const dpr = window.devicePixelRatio || 1;
+    if (gridSize <= 0) return 0;
 
     if (unit === "px") return gridSize;
 
@@ -47,6 +54,10 @@ export default function Home() {
     return gridSize;
   };
   const drawCanvas = () => {
+    const safeDpi = Number(dpi) || 0;
+    const safeGridSize = Number(gridSize) || 0;
+    const safeLineWidth = Number(lineWidth) || 0;
+    if (safeDpi <= 0) return;
     if (!image) return;
 
     const canvas = canvasRef.current;
@@ -85,18 +96,44 @@ export default function Home() {
   `;
 
       // ✅ 5️⃣ DRAW IMAGE HERE
-      ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+      const imgRatio = img.width / img.height;
+      const canvasRatio = canvasWidth / canvasHeight;
+
+      // base fit (contain)
+      let drawWidth = canvasWidth;
+      let drawHeight = canvasHeight;
+
+      if (imgRatio > canvasRatio) {
+        drawHeight = canvasWidth / imgRatio;
+      } else {
+        drawWidth = canvasHeight * imgRatio;
+      }
+
+      // apply zoom
+      drawWidth *= transform.scale;
+      drawHeight *= transform.scale;
+
+      // center + offset
+      const x = (canvasWidth - drawWidth) / 2 + transform.offsetX;
+      const y = (canvasHeight - drawHeight) / 2 + transform.offsetY;
+
+      ctx.drawImage(img, x, y, drawWidth, drawHeight);
 
       // 6️⃣ Reset filter (so grid is not affected)
       ctx.filter = "none";
 
       // 7️⃣ Draw grid on top
-      drawGrid(ctx, canvasWidth, canvasHeight);
+      if (safeGridSize > 0 && safeLineWidth > 0) {
+        drawGrid(ctx, canvasWidth, canvasHeight);
+      }
     };
   };
 
   const drawGrid = (ctx, width, height) => {
+
     const spacing = getSpacing();
+
+    if (!spacing || spacing <= 0) return;
 
     ctx.strokeStyle = hexToRgba(strokeColor, opacity);
     ctx.lineWidth = lineWidth;
@@ -147,7 +184,39 @@ export default function Home() {
       }
     }
   };
+  const isDragging = useRef(false);
+  const lastPos = useRef({ x: 0, y: 0 });
 
+  const handleMouseDown = (e) => {
+    if (!editMode) return;
+    isDragging.current = true;
+    lastPos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging.current) return;
+
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    const dx = (e.clientX - lastPos.current.x) * scaleX;
+    const dy = (e.clientY - lastPos.current.y) * scaleY;
+
+    setTransform((prev) => ({
+      ...prev,
+      offsetX: prev.offsetX + dx,
+      offsetY: prev.offsetY + dy,
+    }));
+
+    lastPos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseUp = () => {
+    isDragging.current = false;
+  };
   const handleRemoveImage = () => {
     if (image) URL.revokeObjectURL(image);
     setImage(null);
@@ -167,9 +236,30 @@ export default function Home() {
 
   useEffect(() => {
     drawCanvas();
-  }, [image, gridSize, showDiagonal, diagonalType, lineWidth, strokeColor, unit, opacity, brightness, contrast, saturation, paper, dpi]);
+  }, [image, gridSize, showDiagonal, diagonalType, lineWidth, strokeColor, unit, opacity, brightness, contrast, saturation, paper, dpi, editMode, transform]);
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
 
+    const handleWheel = (e) => {
+      if (!editMode) return;
+
+      e.preventDefault(); // ✅ now allowed
+
+      const zoom = e.deltaY > 0 ? 0.97 : 1.03;
+
+      setTransform((prev) => ({
+        ...prev,
+        scale: Math.min(5, Math.max(0.2, prev.scale * zoom)),
+      }));
+    };
+
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      canvas.removeEventListener("wheel", handleWheel);
+    };
+  }, [editMode]);
   useEffect(() => {
     const generated = Array.from({ length: 20 }).map((_, i) => {
       const duration = 6 + Math.random() * 6;
@@ -212,6 +302,10 @@ export default function Home() {
         <canvas
           ref={canvasRef}
           className={`rounded-sm ${image ? 'shadow-lg' : ''} transition-all duration-300 max-w-full max-h-[70vh] z-10`}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
         />
 
         {/* Floating Controls */}
@@ -269,6 +363,32 @@ export default function Home() {
             </div>
             {/* 🎨 Appearance */}
             <div className="flex flex-col gap-1">
+              <button
+                onClick={() => setEditMode(true)}
+                className="px-2 py-1 bg-zinc-700 text-white rounded"
+              >
+                Edit Image
+              </button>
+              {editMode && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditMode(false)}
+                    className="bg-green-500 text-white px-2 py-1 rounded"
+                  >
+                    ✔
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setTransform({ scale: 1, offsetX: 0, offsetY: 0 });
+                      setEditMode(false);
+                    }}
+                    className="bg-red-500 text-white px-2 py-1 rounded"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
               <label className="text-[10px] uppercase text-zinc-500">
                 Paper
               </label>
@@ -283,21 +403,34 @@ export default function Home() {
                 <option value="A1">A1</option>
                 <option value="A0">A0</option>
               </select>
-              <input
-                type="number"
-                min={72}
-                max={600}
-                step={1}
-                value={dpi}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  if (isNaN(val)) return;
+              <label className="flex items-center gap-2">
+                DPI
+                <input
+                  type="number"
+                  min={72}
+                  max={600}
+                  value={dpi}
+                  onChange={(e) => {
+                    const val = e.target.value;
 
-                  const clamped = Math.min(600, Math.max(72, val));
-                  setDpi(clamped);
-                }}
-                className="w-16 px-1 py-0.5 border rounded text-xs"
-              />
+                    // allow empty while typing
+                    if (val === "") {
+                      setDpi("");
+                      return;
+                    }
+
+                    const num = Number(val);
+                    if (!isNaN(num)) {
+                      setDpi(num);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!dpi || dpi < 72) setDpi(72);
+                    else if (dpi > 600) setDpi(600);
+                  }}
+                  className="w-16 px-1 py-0.5 border rounded text-xs"
+                />
+              </label>
             </div>
             <div className="flex flex-col gap-2">
               <span className="uppercase text-[10px] text-zinc-500">Appearance</span>
@@ -319,9 +452,25 @@ export default function Home() {
                     min={1}
                     step={0.1}
                     value={lineWidth}
-                    onChange={(e) =>
-                      setLineWidth(Math.max(1, Number(e.target.value)))
-                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+
+                      // allow empty while typing
+                      if (val === "") {
+                        setLineWidth("");
+                        return;
+                      }
+
+                      const num = Number(val);
+                      if (!isNaN(num)) {
+                        setLineWidth(num);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (gridSize === "" || gridSize < 1) {
+                        setLineWidth(1);
+                      }
+                    }}
                     className="w-14 px-1 py-0.5 border rounded bg-gray-50 dark:bg-zinc-800"
                   />
                 </label>
@@ -364,9 +513,25 @@ export default function Home() {
                   min={1}
                   step={0.1}
                   value={gridSize}
-                  onChange={(e) =>
-                    setGridSize(Math.max(1, Number(e.target.value)))
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+
+                    // allow empty while typing
+                    if (val === "") {
+                      setGridSize("");
+                      return;
+                    }
+
+                    const num = Number(val);
+                    if (!isNaN(num)) {
+                      setGridSize(num);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (gridSize === "" || gridSize < 1) {
+                      setGridSize(1);
+                    }
+                  }}
                   className="w-14 px-1 py-0.5 border rounded bg-gray-50 dark:bg-zinc-800"
                 />
               </div>
