@@ -381,7 +381,7 @@ export default function Home() {
           />
         ))}
       </div>
-      <div className="h-screen w-full flex flex-col items-center justify-center gap-6 bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-black dark:to-zinc-900 overflow-hidden">
+      <div className="h-screen w-full flex flex-col items-center justify-center gap-6 bg-linear-to-br from-zinc-100 to-zinc-200 dark:from-black dark:to-zinc-900 overflow-hidden">
 
         {/* Canvas */}
         <canvas
