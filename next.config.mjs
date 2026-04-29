@@ -7,11 +7,11 @@ const nextConfig = {
         headers: [
           {
             key: "Content-Security-Policy",
-            value: "frame-ancestors 'none';",
+            value: "frame-ancestors https://www.dailytechminds.com;",
           },
           {
             key: "X-Frame-Options",
-            value: "DENY",
+            value: "DENY", // legacy fallback
           },
         ],
       },
