@@ -1,65 +1,266 @@
-import Image from "next/image";
+"use client";
+import { useEffect, useRef, useState } from "react";
+import { Download, Trash2, Grid3X3 } from "lucide-react";
 
 export default function Home() {
+  const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  const [image, setImage] = useState(null);
+  const [gridSize, setGridSize] = useState(2);
+  const [lineWidth, setLineWidth] = useState(1);
+  const [showDiagonal, setShowDiagonal] = useState(false);
+  const [diagonalType, setDiagonalType] = useState("both");
+  const [showControls, setShowControls] = useState(true);
+  const [particles, setParticles] = useState([]);
+  const getCMToPX = () => (96 * window.devicePixelRatio) / 2.54;
+
+  const drawCanvas = () => {
+    if (!image) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+
+    const img = new window.Image();
+    img.src = image;
+
+    img.onload = () => {
+      // Fit image inside viewport
+      const maxWidth = window.innerWidth * 0.95;
+      const maxHeight = window.innerHeight * 0.75;
+
+      let width = img.width;
+      let height = img.height;
+
+      const scale = Math.min(maxWidth / width, maxHeight / height, 1);
+
+      width *= scale;
+      height *= scale;
+
+      canvas.width = width;
+      canvas.height = height;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+
+      drawGrid(ctx, width, height);
+    };
+  };
+
+  const drawGrid = (ctx, width, height) => {
+    const spacing = gridSize * getCMToPX();
+
+    ctx.strokeStyle = "rgba(0,0,0,0.7)";
+    ctx.lineWidth = lineWidth;
+
+    for (let x = 0; x < width; x += spacing) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+
+    for (let y = 0; y < height; y += spacing) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+
+    if (showDiagonal) {
+      drawDiagonals(ctx, width, height, spacing);
+    }
+  };
+
+  const drawDiagonals = (ctx, width, height, spacing) => {
+    ctx.lineWidth = lineWidth;
+
+    const cols = Math.ceil(width / spacing);
+    const rows = Math.ceil(height / spacing);
+
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const x = col * spacing;
+        const y = row * spacing;
+
+        if (diagonalType === "left" || diagonalType === "both") {
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + spacing, y + spacing);
+          ctx.stroke();
+        }
+
+        if (diagonalType === "right" || diagonalType === "both") {
+          ctx.beginPath();
+          ctx.moveTo(x + spacing, y);
+          ctx.lineTo(x, y + spacing);
+          ctx.stroke();
+        }
+      }
+    }
+  };
+
+  const handleRemoveImage = () => {
+    if (image) URL.revokeObjectURL(image);
+    setImage(null);
+
+    const ctx = canvasRef.current.getContext("2d");
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
+    fileInputRef.current.value = "";
+  };
+
+  const handleDownload = () => {
+    const link = document.createElement("a");
+    link.download = "grid-image.png";
+    link.href = canvasRef.current.toDataURL("image/png");
+    link.click();
+  };
+
+  useEffect(() => {
+    drawCanvas();
+  }, [image, gridSize, showDiagonal, diagonalType, lineWidth]);
+
+
+  useEffect(() => {
+    const generated = Array.from({ length: 20 }).map((_, i) => {
+      const duration = 6 + Math.random() * 6;
+
+      return {
+        left: Math.random() * 100,
+        duration,
+        delay: -Math.random() * duration, // 👈 key fix
+      };
+    });
+    setParticles(generated);
+  }, []);
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <>
+      {/* 🌫️ Misty Glow */}
+      <div className="absolute bottom-[-95%] left-1/2 -translate-x-1/2 
+    w-200 h-200
+    bg-linear-to-tr from-fuchsia-400/30 via-purple-400/30 to-orange-400/40
+    blur-[120px] opacity-60 animate-pulse" />
+
+      {/* Secondary subtle haze */}
+      <div className="absolute bottom-0 left-0 w-full h-40 
+    bg-linear-to-t from-fuchsia-400/20 to-transparent dark:from-emerald-300/10" />
+      <div className="absolute inset-0">
+        {particles.map((p, i) => (
+          <span
+            key={i}
+            className="particle"
+            style={{
+              left: `${p.left}%`,
+              animationDelay: `${p.delay}s`,
+              animationDuration: `${p.duration}s`,
+            }}
+          />
+        ))}
+      </div>
+      <div className="h-screen w-full flex flex-col items-center justify-center gap-6 bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-black dark:to-zinc-900 overflow-hidden">
+
+        {/* Canvas */}
+        <canvas
+          ref={canvasRef}
+          className="rounded-sm shadow-lg transition-all duration-300 max-w-full max-h-[70vh]"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        {/* Floating Controls */}
+        <div
+          className={`
+    w-full max-w-4xl mx-auto
+    backdrop-blur-md bg-white/70 dark:bg-zinc-900/70 
+    border border-white/20 shadow-xl rounded-2xl p-4 
+    flex flex-wrap gap-3 items-center justify-center
+    transition-all duration-300
+
+    md:static md:translate-x-0 md:bottom-auto md:left-auto md:opacity-100
+    fixed bottom-4 left-1/2 -translate-x-1/2
+    ${showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}
+  `}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files[0];
+              if (file) {
+                if (image) URL.revokeObjectURL(image);
+                setImage(URL.createObjectURL(file));
+              }
+            }}
+            className="text-sm"
+          />
+          Grid (cm)
+          <input
+            type="number"
+            min={0.1}
+            step={0.1}
+            value={gridSize}
+            onChange={(e) => {
+              const value = Math.max(0.1, Number(e.target.value));
+              setGridSize(value);
+            }}
+            className="w-16 px-2 py-1 border rounded text-sm bg-gray-50 dark:bg-zinc-800"
+            title="Grid (cm)"
+          />
+          Thickness
+          <input
+            type="number"
+            min={0.1}
+            step={0.1}
+            value={lineWidth}
+            onChange={(e) => {
+              const value = Math.max(0.1, Number(e.target.value));
+              setLineWidth(value);
+            }}
+            className="w-16 px-2 py-1 border rounded text-sm bg-gray-50 dark:bg-zinc-800"
+            title="Grid (cm)"
+          />
+          <label className="flex items-center gap-1 text-sm">
+            <input
+              type="checkbox"
+              checked={showDiagonal}
+              onChange={(e) => setShowDiagonal(e.target.checked)}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Diagonal
+          </label>
+
+          <select
+            value={diagonalType}
+            onChange={(e) => setDiagonalType(e.target.value)}
+            className="px-2 py-1 border rounded text-sm bg-gray-50 dark:bg-zinc-800"
           >
-            Documentation
-          </a>
+            <option value="left">↘</option>
+            <option value="right">↙</option>
+            <option value="both">✖</option>
+          </select>
+
+          <button
+            onClick={handleDownload}
+            className="p-2 rounded bg-black text-white hover:scale-105 transition"
+          >
+            <Download size={16} />
+          </button>
+
+          <button
+            onClick={handleRemoveImage}
+            className="p-2 rounded bg-red-500 text-white hover:scale-105 transition"
+          >
+            <Trash2 size={16} />
+          </button>
         </div>
-      </main>
-    </div>
+
+        {/* Toggle Controls (Mobile) */}
+        <button
+          onClick={() => setShowControls((p) => !p)}
+          className="fixed top-4 right-4 p-3 rounded-full bg-black text-white shadow-lg"
+        >
+          <Grid3X3 size={18} />
+        </button>
+      </div>
+    </>
   );
 }
