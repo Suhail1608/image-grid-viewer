@@ -8,7 +8,7 @@ export default function Home() {
 
   const [image, setImage] = useState(null);
   const [gridSize, setGridSize] = useState(2);
-  const [lineWidth, setLineWidth] = useState(1);
+  const [lineWidth, setLineWidth] = useState(8);
   const [showDiagonal, setShowDiagonal] = useState(false);
   const [diagonalType, setDiagonalType] = useState("both");
   const [strokeColor, setStrokeColor] = useState("#000000");
@@ -19,6 +19,16 @@ export default function Home() {
   const [saturation, setSaturation] = useState(100);
   const [showControls, setShowControls] = useState(true);
   const [particles, setParticles] = useState([]);
+  const [paper, setPaper] = useState("A4");
+  const [dpi, setDpi] = useState(300); // high quality export
+  const PAPER_SIZES = {
+    A4: { w: 210, h: 297 },
+    A3: { w: 297, h: 420 },
+    A2: { w: 420, h: 594 },
+    A1: { w: 594, h: 841 },
+    A0: { w: 841, h: 1189 },
+  };
+  const mmToPx = (mm) => (mm / 25.4) * dpi;
   const hexToRgba = (hex, alpha) => {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
@@ -30,13 +40,9 @@ export default function Home() {
 
     if (unit === "px") return gridSize;
 
-    if (unit === "cm") {
-      return gridSize * (96 * dpr) / 2.54;
-    }
+    if (unit === "cm") return (gridSize / 2.54) * dpi;
 
-    if (unit === "inch") {
-      return gridSize * 96 * dpr;
-    }
+    if (unit === "inch") return gridSize * dpi;
 
     return gridSize;
   };
@@ -50,35 +56,42 @@ export default function Home() {
     img.src = image;
 
     img.onload = () => {
-      const maxWidth = window.innerWidth * 0.95;
-      const maxHeight = window.innerHeight * 0.75;
+      const { w, h } = PAPER_SIZES[paper];
 
-      let width = img.width;
-      let height = img.height;
+      const canvasWidth = mmToPx(w);
+      const canvasHeight = mmToPx(h);
 
-      const scale = Math.min(maxWidth / width, maxHeight / height, 1);
+      // 1️⃣ Set real canvas resolution
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
 
-      width *= scale;
-      height *= scale;
+      // 2️⃣ Scale for display (responsive)
+      const scale = Math.min(
+        window.innerWidth * 0.9 / canvasWidth,
+        window.innerHeight * 0.8 / canvasHeight
+      );
 
-      canvas.width = width;
-      canvas.height = height;
+      canvas.style.width = `${canvasWidth * scale}px`;
+      canvas.style.height = `${canvasHeight * scale}px`;
 
-      ctx.clearRect(0, 0, width, height);
+      // 3️⃣ Clear canvas
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-      // 🎨 Apply filters BEFORE drawing image
+      // 4️⃣ Apply filters (ONLY for image)
       ctx.filter = `
-      brightness(${brightness}%)
-      contrast(${contrast}%)
-      saturate(${saturation}%)
-    `;
+    brightness(${brightness}%)
+    contrast(${contrast}%)
+    saturate(${saturation}%)
+  `;
 
-      ctx.drawImage(img, 0, 0, width, height);
+      // ✅ 5️⃣ DRAW IMAGE HERE
+      ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
 
-      // reset filter so grid is not affected
+      // 6️⃣ Reset filter (so grid is not affected)
       ctx.filter = "none";
 
-      drawGrid(ctx, width, height);
+      // 7️⃣ Draw grid on top
+      drawGrid(ctx, canvasWidth, canvasHeight);
     };
   };
 
@@ -154,7 +167,7 @@ export default function Home() {
 
   useEffect(() => {
     drawCanvas();
-  }, [image, gridSize, showDiagonal, diagonalType, lineWidth, strokeColor, unit, opacity, brightness, contrast, saturation]);
+  }, [image, gridSize, showDiagonal, diagonalType, lineWidth, strokeColor, unit, opacity, brightness, contrast, saturation, paper, dpi]);
 
 
   useEffect(() => {
@@ -255,6 +268,37 @@ export default function Home() {
               </button>
             </div>
             {/* 🎨 Appearance */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase text-zinc-500">
+                Paper
+              </label>
+              <select
+                value={paper}
+                onChange={(e) => setPaper(e.target.value)}
+                className="px-1 py-0.5 border rounded bg-gray-50 dark:bg-zinc-800"
+              >
+                <option value="A4">A4</option>
+                <option value="A3">A3</option>
+                <option value="A2">A2</option>
+                <option value="A1">A1</option>
+                <option value="A0">A0</option>
+              </select>
+              <input
+                type="number"
+                min={72}
+                max={600}
+                step={1}
+                value={dpi}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  if (isNaN(val)) return;
+
+                  const clamped = Math.min(600, Math.max(72, val));
+                  setDpi(clamped);
+                }}
+                className="w-16 px-1 py-0.5 border rounded text-xs"
+              />
+            </div>
             <div className="flex flex-col gap-2">
               <span className="uppercase text-[10px] text-zinc-500">Appearance</span>
 
@@ -272,11 +316,11 @@ export default function Home() {
                   Thickness
                   <input
                     type="number"
-                    min={0.1}
+                    min={1}
                     step={0.1}
                     value={lineWidth}
                     onChange={(e) =>
-                      setLineWidth(Math.max(0.1, Number(e.target.value)))
+                      setLineWidth(Math.max(1, Number(e.target.value)))
                     }
                     className="w-14 px-1 py-0.5 border rounded bg-gray-50 dark:bg-zinc-800"
                   />
@@ -317,11 +361,11 @@ export default function Home() {
 
                 <input
                   type="number"
-                  min={0.1}
+                  min={1}
                   step={0.1}
                   value={gridSize}
                   onChange={(e) =>
-                    setGridSize(Math.max(0.1, Number(e.target.value)))
+                    setGridSize(Math.max(1, Number(e.target.value)))
                   }
                   className="w-14 px-1 py-0.5 border rounded bg-gray-50 dark:bg-zinc-800"
                 />
