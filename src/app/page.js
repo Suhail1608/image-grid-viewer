@@ -386,6 +386,7 @@ export default function Home() {
         {/* Canvas */}
         <canvas
           ref={canvasRef}
+          style={{ touchAction: editMode ? "none" : "auto" }}
           className={`rounded-sm ${image ? 'shadow-lg' : ''} transition-all duration-300 max-w-full max-h-[70vh] z-10`}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
