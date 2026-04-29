@@ -11,7 +11,7 @@ const nextConfig = {
           },
           {
             key: "X-Frame-Options",
-            value: "DENY", // legacy fallback
+            value: "SAMEORIGIN", // fallback (won’t conflict)
           },
         ],
       },
