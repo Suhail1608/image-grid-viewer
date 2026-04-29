@@ -626,7 +626,16 @@ export default function Home() {
 
             {/* 🎛 Adjust */}
             <div className="flex flex-col gap-2">
-              <span className="uppercase text-[10px] text-zinc-500">Adjust</span>
+              <span className="uppercase text-[10px] text-zinc-500 flex items-center gap-2">
+                Adjust
+                <button
+                  className="rounded-sm bg-gray-600 p-1 text-white"
+                  onClick={() => {
+                    setBrightness(100);
+                    setContrast(100);
+                    setSaturation(100);
+                  }}>Reset</button>
+              </span>
 
               {[
                 { v: brightness, set: setBrightness, min: 50, max: 150 },
