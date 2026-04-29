@@ -21,6 +21,8 @@ export default function Home() {
   const [particles, setParticles] = useState([]);
   const [paper, setPaper] = useState("A4");
   const [dpi, setDpi] = useState(150); // high quality export
+  const lastTouch = useRef(null);
+  const lastDistance = useRef(null);
   const [editMode, setEditMode] = useState(false);
 
   const [transform, setTransform] = useState({
@@ -186,7 +188,70 @@ export default function Home() {
   };
   const isDragging = useRef(false);
   const lastPos = useRef({ x: 0, y: 0 });
+  const handleTouchStart = (e) => {
+    if (!editMode) return;
 
+    if (e.touches.length === 1) {
+      lastTouch.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+      };
+    }
+
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      lastDistance.current = Math.sqrt(dx * dx + dy * dy);
+    }
+  };
+  const handleTouchMove = (e) => {
+    if (!editMode) return;
+
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    // 👉 PAN (1 finger)
+    if (e.touches.length === 1 && lastTouch.current) {
+      const dx =
+        (e.touches[0].clientX - lastTouch.current.x) * scaleX;
+      const dy =
+        (e.touches[0].clientY - lastTouch.current.y) * scaleY;
+
+      setTransform((prev) => ({
+        ...prev,
+        offsetX: prev.offsetX + dx,
+        offsetY: prev.offsetY + dy,
+      }));
+
+      lastTouch.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+      };
+    }
+
+    // 👉 PINCH ZOOM (2 fingers)
+    if (e.touches.length === 2 && lastDistance.current) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      const zoom = distance / lastDistance.current;
+
+      setTransform((prev) => ({
+        ...prev,
+        scale: Math.min(5, Math.max(0.2, prev.scale * zoom)),
+      }));
+
+      lastDistance.current = distance;
+    }
+  };
+  const handleTouchEnd = () => {
+    lastTouch.current = null;
+    lastDistance.current = null;
+  };
   const handleMouseDown = (e) => {
     if (!editMode) return;
     isDragging.current = true;
@@ -272,6 +337,26 @@ export default function Home() {
     });
     setParticles(generated);
   }, []);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (editMode) {
+      setShowControls(false);
+    } else {
+      setShowControls(true);
+    }
+    const preventScroll = (e) => {
+      if (editMode) e.preventDefault();
+    };
+
+    canvas.addEventListener("touchmove", preventScroll, {
+      passive: false,
+    });
+
+    return () => {
+      canvas.removeEventListener("touchmove", preventScroll);
+    };
+
+  }, [editMode]);
   return (
     <>
       {/* 🌫️ Misty Glow */}
@@ -306,6 +391,11 @@ export default function Home() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+
         />
 
         {/* Floating Controls */}
@@ -363,32 +453,7 @@ export default function Home() {
             </div>
             {/* 🎨 Appearance */}
             <div className="flex flex-col gap-1">
-              <button
-                onClick={() => setEditMode(true)}
-                className="px-2 py-1 bg-zinc-700 text-white rounded"
-              >
-                Edit Image
-              </button>
-              {editMode && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setEditMode(false)}
-                    className="bg-green-500 text-white px-2 py-1 rounded"
-                  >
-                    ✔
-                  </button>
 
-                  <button
-                    onClick={() => {
-                      setTransform({ scale: 1, offsetX: 0, offsetY: 0 });
-                      setEditMode(false);
-                    }}
-                    className="bg-red-500 text-white px-2 py-1 rounded"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
               <label className="text-[10px] uppercase text-zinc-500">
                 Paper
               </label>
@@ -590,6 +655,35 @@ export default function Home() {
         >
           <Grid3X3 size={18} />
         </button>
+        <div
+          className="fixed top-4 left-4 p-3 rounded-full bg-black text-white shadow-lg">
+          <button
+            onClick={() => setEditMode(!editMode)}
+            className="px-2 py-1 bg-zinc-700 text-white rounded text-xs md:text-md"
+          >
+            Edit Image
+          </button>
+          {editMode && (
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => setEditMode(false)}
+                className="bg-green-500 text-white px-2 py-1 rounded"
+              >
+                ✔
+              </button>
+
+              <button
+                onClick={() => {
+                  setTransform({ scale: 1, offsetX: 0, offsetY: 0 });
+                  setEditMode(false);
+                }}
+                className="bg-red-500 text-white px-2 py-1 rounded"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </>
   );
