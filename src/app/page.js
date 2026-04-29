@@ -163,7 +163,7 @@ export default function Home() {
         {/* Canvas */}
         <canvas
           ref={canvasRef}
-          className="rounded-sm shadow-lg transition-all duration-300 max-w-full max-h-[70vh]"
+          className="rounded-sm shadow-lg transition-all duration-300 max-w-full max-h-[70vh] z-10"
         />
 
         {/* Floating Controls */}
